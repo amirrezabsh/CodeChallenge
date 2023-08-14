@@ -46,6 +46,12 @@ class PlaceOrderView(APIView):
         amount = int(data.get('amount'))
         user = request.user
 
+        if currency not in currencies_price:
+            return Response({'error': 'Invalid currency'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if amount < 0:
+            return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Initializing the price of the specified currency
         price = currencies_price.get(currency)
 
