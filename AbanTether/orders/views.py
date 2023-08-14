@@ -16,6 +16,7 @@ currencies_price = {
     "DOGECOIN":5
 }
 
+# This class is for placing orders process
 class PlaceOrderView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -24,12 +25,14 @@ class PlaceOrderView(APIView):
         print(f"Bought {amount} {currency} with {amount * currencies_price.get(currency)}$ value from exchange.")
 
     def checkout(self, currency, price):
+
+        checkout_threshold = 10
         # Filtering not checkedout orders
         total_not_checkedout_orders = Order.objects.filter(currency=currency, is_checkedout=False)
         total_amount = total_not_checkedout_orders.aggregate(Sum('amount'))['amount__sum']
         
         # Checking if the orders amount of money is above 10$
-        if total_amount * price >= 10:
+        if total_amount * price >= checkout_threshold:
             self.buy_from_exchange(total_amount, currency)
             total_not_checkedout_orders.update(is_checkedout=True)
 
