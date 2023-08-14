@@ -1,17 +1,13 @@
 # orders/views.py
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from .models import Order, Customer
+from .models import Order
 from django.db.models import Sum
+from rest_framework.permissions import IsAuthenticated 
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
 
-
-
-
-def buy_from_exchange(order):
-    # Simulating buying from exchange
-    print(f"Bought {order.amount} {order.currency} from exchange.")
-
+# Hard-coded price for simplicity
 currencies_price = {
     "ABAN":4,
     "SHIBA": 3,
@@ -20,35 +16,56 @@ currencies_price = {
     "DOGECOIN":5
 }
 
-@csrf_exempt
-def place_order(request):
-    john = Customer(name='John',balance=1000)
-    john.save()
-    if request.method == 'POST':
-        data = request.POST
+class PlaceOrderView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def buy_from_exchange(self,amount, currency):
+        # Simulating buying from exchange
+        print(f"Bought {amount} {currency} with {amount * currencies_price.get(currency)}$ value from exchange.")
+
+    def checkout(self, currency, price):
+        # Filtering not checkedout orders
+        total_not_checkedout_orders = Order.objects.filter(currency=currency, is_checkedout=False)
+        total_amount = total_not_checkedout_orders.aggregate(Sum('amount'))['amount__sum']
+        
+        # Checking if the orders amount of money is above 10$
+        if total_amount * price >= 10:
+            self.buy_from_exchange(total_amount, currency)
+            total_not_checkedout_orders.update(is_checkedout=True)
+
+
+    # Defining the POST method
+    def post(self, request, *args, **kwargs):
+        
+        # Extracting data from the request
+        data = request.data
         currency = data.get('currency')
         amount = int(data.get('amount'))
+        user = request.user
+
+        # Initializing the price of the specified currency
         price = currencies_price.get(currency)
 
-        customer_name = "John"  # Assuming a single customer for simplicity
-        customer, status = Customer.objects.get_or_create(name=customer_name)
+        # Check if the user has sufficient balance
+        if user.balance < amount * price:
+            return Response({'error': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
 
-        order = Order.objects.create(customer=customer, currency=currency, amount=amount)
+        try:
+            # Inserting customer's order into the DB
+            order = Order.objects.create(customer=user, currency=currency, amount=amount)
 
-        total_amount = Order.objects.filter(customer=customer, currency=currency).aggregate(Sum('amount'))['amount__sum']
-        
+            # Processing customer's balance
+            user.balance -= order.amount * price  
+            user.save()
 
-        if total_amount >= 10:
-            orders_to_process = Order.objects.filter(customer=customer, currency=currency)
-            for o in orders_to_process:
-                buy_from_exchange(o)
-                o.is_checkedout = True
-                o.save()
+            # Checking if chekingout conditions are satisfied
+            self.checkout(currency, price)
 
-        customer.balance -= order.amount * price  # Hard-coded price for simplicity
-        customer.save()
+            return Response({'message': 'Order placed successfully'}, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': 'An error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return JsonResponse({'message': 'Order placed successfully'})
     
-    return JsonResponse({'message': 'Invalid request method'})
 
