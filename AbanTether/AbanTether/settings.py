@@ -40,16 +40,16 @@ INSTALLED_APPS = [
 
     # Third-Party Apps
     'rest_framework',
-    'rest_framework.authtoken', 
+    'rest_framework.authtoken',
 
     # Local Apps
     'orders',
     'users'
 ]
-AUTH_USER_MODEL = 'users.CustomUser' 
+AUTH_USER_MODEL = 'users.CustomUser'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication', 
+        'rest_framework.authentication.TokenAuthentication',
     ],
 }
 MIDDLEWARE = [
