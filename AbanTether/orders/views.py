@@ -77,7 +77,5 @@ class PlaceOrderView(APIView):
             self.checkout(currency, price)
 
             return Response({'message': 'Order placed successfully', 'balance': user.balance}, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': 'An error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
